@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class MyPhone extends StatefulWidget {
@@ -9,12 +10,45 @@ class MyPhone extends StatefulWidget {
 
 class _MyPhoneState extends State<MyPhone> {
   TextEditingController countryController = TextEditingController();
+  TextEditingController phoneController = TextEditingController();
+  String? _verificationCode;
+  bool readOnly = false;
 
   @override
   void initState() {
     // TODO: implement initState
     countryController.text = "+91";
     super.initState();
+  }
+
+  _verifyPhone(phone) async {
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+91${phone}',
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          print(e.message);
+        },
+        codeSent: (String? verficationID, int? resendToken) {
+          print('Verification code sent to phone number');
+        },
+        codeAutoRetrievalTimeout: (String verificationID) {
+          setState(() {
+            _verificationCode = verificationID;
+          });
+          print("timeout");
+        },
+      );
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'We have blocked all requests from this device due to unusual activity. Try again later.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -71,6 +105,11 @@ class _MyPhoneState extends State<MyPhone> {
                         decoration: InputDecoration(
                           border: InputBorder.none,
                         ),
+                        onEditingComplete: () {
+                          setState(() {
+                            readOnly = true;
+                          });
+                        },
                       ),
                     ),
                     Text(
@@ -82,6 +121,7 @@ class _MyPhoneState extends State<MyPhone> {
                     ),
                     Expanded(
                         child: TextField(
+                      controller: phoneController,
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         border: InputBorder.none,
@@ -99,13 +139,18 @@ class _MyPhoneState extends State<MyPhone> {
                 height: 45,
                 child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                        primary: Colors.green.shade600,
+                        backgroundColor: Colors.green.shade600,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10))),
                     onPressed: () {
                       Navigator.pushNamed(context, 'verify');
+                      print("phone ${phoneController.text}");
+                      _verifyPhone(phoneController.text);
                     },
-                    child: Text("Send the code")),
+                    child: Text(
+                      "Send the code",
+                      style: TextStyle(color: Colors.white),
+                    )),
               )
             ],
           ),
